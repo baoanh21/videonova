@@ -1,4 +1,55 @@
-import { Link } from 'react-router-dom';
-import Icon from '../components/Icon';
-function Brand(){return <Link to="/" className="auth-brand"><div className="brand-mark"><span>V</span><i/></div><div><h1>VIDEONOVA</h1><p>AI Video Studio</p></div></Link>}
-export default function Login(){return <div className="auth-page"><div className="auth-visual"><Brand/><div className="auth-visual-copy"><span><Icon name="sparkles" className="w-4 h-4"/> AI VIDEO CREATION</span><h2>Biến ý tưởng tĩnh<br/>thành <em>chuyển động.</em></h2><p>Nền tảng tạo video từ hình ảnh bằng AI, đơn giản cho người dùng và dễ quản lý cho dự án.</p></div><div className="auth-demo-card"><div className="auth-demo-image thumb-1"><button><Icon name="play" className="w-7 h-7"/></button></div><div><span>Video được tạo bằng VideoNova</span><strong>Tokyo cinematic motion</strong></div></div><small className="auth-copyright">© 2026 VideoNova. Giao diện đồ án.</small></div><main className="auth-form-side"><div className="auth-mobile-brand"><Brand/></div><div className="auth-form"><span className="auth-kicker">CHÀO MỪNG TRỞ LẠI</span><h1>Đăng nhập vào VideoNova</h1><p>Tiếp tục tạo và quản lý video AI của bạn.</p><label><span>Email</span><div className="input-icon"><Icon name="mail" className="w-[18px] h-[18px]"/><input placeholder="name@example.com"/></div></label><label><div className="label-line"><span>Mật khẩu</span><Link to="/forgot-password">Quên mật khẩu?</Link></div><div className="input-icon"><Icon name="lock" className="w-[18px] h-[18px]"/><input type="password" placeholder="Nhập mật khẩu"/><Icon name="eye" className="w-[18px] h-[18px] input-end"/></div></label><div className="remember-row"><div className="fake-checkbox"><Icon name="check" className="w-3 h-3"/></div><span>Ghi nhớ đăng nhập</span></div><Link to="/" className="btn btn-primary full large">Đăng nhập <Icon name="arrowRight" className="w-4 h-4"/></Link><div className="auth-divider"><span>hoặc</span></div><button className="btn btn-secondary full large google-btn"><b>G</b>Tiếp tục với Google</button><div className="auth-switch">Chưa có tài khoản? <Link to="/register">Tạo tài khoản miễn phí</Link></div></div></main></div>}
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/');
+      } else {
+        alert(data.message || 'Lỗi đăng nhập');
+      }
+    } catch (error) {
+      alert('Không thể kết nối Server');
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-dark items-center justify-center">
+      <form onSubmit={handleSubmit} className="bg-card p-8 rounded-xl border border-gray-800 w-96 flex flex-col gap-4">
+        <h2 className="text-2xl font-bold text-white mb-4">Đăng nhập</h2>
+        <input 
+          type="email" 
+          placeholder="Email" 
+          className="bg-[#14171c] border border-gray-800 p-3 rounded-lg text-white outline-none"
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <input 
+          type="password" 
+          placeholder="Mật khẩu" 
+          className="bg-[#14171c] border border-gray-800 p-3 rounded-lg text-white outline-none"
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit" className="bg-accent py-3 rounded-lg text-white font-bold mt-2">Vào hệ thống</button>
+        <div className="text-gray-400 text-sm mt-2 text-center">
+          Chưa có tài khoản? <Link to="/register" className="text-accent">Đăng ký</Link>
+        </div>
+      </form>
+    </div>
+  );
+}
