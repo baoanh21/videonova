@@ -26,18 +26,53 @@ export function StatCard({ label, value, sub, icon = 'activity', tone = 'indigo'
   );
 }
 
-export function StatusBadge({ status }) {
+export function StatusBadge({
+  status,
+}) {
   const map = {
-    'Hoàn tất': 'success',
-    'Đang xử lý': 'warning',
-    'Thất bại': 'danger',
-    'Đã thanh toán': 'success',
-    'Đã cộng': 'success',
-    'Đang hoạt động': 'success',
-    'Tạm khóa': 'danger',
-    'Đang chờ': 'warning',
+    'Hoàn tất':
+      'success',
+
+    'Thành công':
+      'success',
+
+    'Đã thanh toán':
+      'success',
+
+    'Đã cộng':
+      'success',
+
+    'Đang hoạt động':
+      'success',
+
+    'Đang xử lý':
+      'warning',
+
+    'Đang chờ':
+      'warning',
+
+    'Thất bại':
+      'danger',
+
+    'Tạm khóa':
+      'danger',
+
+    'Đã hoàn tiền':
+      'neutral',
   };
-  return <span className={`status-badge status-${map[status] || 'neutral'}`}><span className="status-dot" />{status}</span>;
+
+  return (
+    <span
+      className={`status-badge status-${
+        map[status] ||
+        'neutral'
+      }`}
+    >
+      <span className="status-dot" />
+
+      {status}
+    </span>
+  );
 }
 
 export function EmptyState({ icon = 'video', title, description, action }) {

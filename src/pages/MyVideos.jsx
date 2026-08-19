@@ -1,20 +1,645 @@
-import { Link } from 'react-router-dom';
-import Icon from '../components/Icon';
-import { PageHeader, StatusBadge } from '../components/UI';
+import {
+  useMemo,
+  useState,
+} from 'react';
 
-const videos = [
-  { id:1,title:'Lái xe đêm Tokyo',status:'Hoàn tất',meta:'5 giây • 16:9',date:'10/08/2026',thumb:'thumb-1' },
-  { id:2,title:'Giới thiệu sản phẩm đại dương',status:'Hoàn tất',meta:'5 giây • 16:9',date:'09/08/2026',thumb:'thumb-2' },
-  { id:3,title:'Chân dung phong cách Cyberpunk',status:'Đang xử lý',meta:'5 giây • 9:16',date:'09/08/2026',thumb:'thumb-3' },
-  { id:4,title:'Flycam núi rừng buổi sớm',status:'Hoàn tất',meta:'10 giây • 16:9',date:'08/08/2026',thumb:'thumb-4' },
-  { id:5,title:'Xoay sản phẩm 360°',status:'Thất bại',meta:'5 giây • 1:1',date:'07/08/2026',thumb:'thumb-5' },
-  { id:6,title:'Thành phố trong mưa',status:'Hoàn tất',meta:'5 giây • 16:9',date:'05/08/2026',thumb:'thumb-6' },
+import {
+  Link,
+} from 'react-router-dom';
+
+import Icon from '../components/Icon';
+
+import {
+  EmptyState,
+  PageHeader,
+  StatusBadge,
+} from '../components/UI';
+
+import {
+  useAppData,
+} from '../context/AppDataContext';
+
+import {
+  getVideoStatusLabel,
+  isVideoCompleted,
+  isVideoFailed,
+  isVideoProcessing,
+} from '../utils/videoStatus';
+
+const FILTERS = [
+  {
+    key: 'all',
+    label: 'Tất cả',
+  },
+  {
+    key: 'completed',
+    label: 'Hoàn tất',
+  },
+  {
+    key: 'processing',
+    label: 'Đang xử lý',
+  },
+  {
+    key: 'failed',
+    label: 'Thất bại',
+  },
 ];
 
-export default function MyVideos(){
-  return <div className="page-wrap"><PageHeader eyebrow="THƯ VIỆN CÁ NHÂN" title="Video của tôi" description="Xem, tải xuống và quản lý toàn bộ video AI bạn đã tạo." action={<Link to="/create" className="btn btn-primary"><Icon name="plus" className="w-4 h-4"/>Tạo video mới</Link>}/>
-    <div className="library-toolbar"><div className="tabs">{['Tất cả 24','Hoàn tất 21','Đang xử lý 2','Thất bại 1'].map((x,i)=><button key={x} className={i===0?'active':''}>{x}</button>)}</div><div className="toolbar-right"><div className="search-field"><Icon name="search" className="w-4 h-4"/><span>Tìm kiếm video...</span></div><button className="filter-button">Mới nhất <Icon name="chevronDown" className="w-4 h-4"/></button></div></div>
-    <div className="video-grid">{videos.map(v=><article className="video-card" key={v.id}><Link to={`/videos/${v.id}`} className={`video-cover ${v.thumb}`}><div className="cover-actions"><span className="play-circle"><Icon name="play" className="w-5 h-5"/></span></div>{v.status==='Đang xử lý'&&<div className="processing-overlay"><div className="spinner"/><strong>Đang tạo video...</strong><span>68%</span><div className="processing-bar"><i/></div></div>}{v.status==='Thất bại'&&<div className="failed-overlay"><div><Icon name="x" className="w-5 h-5"/></div><span>Tạo video thất bại</span></div>}</Link><div className="video-card-body"><div className="video-title-row"><Link to={`/videos/${v.id}`}>{v.title}</Link><button><Icon name="more" className="w-5 h-5"/></button></div><div className="video-meta-row"><StatusBadge status={v.status}/><span>{v.meta}</span></div><div className="video-card-footer"><span>{v.date}</span><div>{v.status==='Hoàn tất'&&<button title="Tải xuống"><Icon name="download" className="w-4 h-4"/></button>}<button title="Tạo lại"><Icon name="refresh" className="w-4 h-4"/></button></div></div></div></article>)}</div>
-    <div className="pagination"><button disabled>‹</button><button className="active">1</button><button>2</button><button>3</button><span>...</span><button>8</button><button>›</button></div>
-  </div>;
+function formatDate(value) {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat(
+    'vi-VN',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }
+  ).format(date);
+}
+
+function getMeta(video) {
+  const duration =
+    video.duration
+      ? `${video.duration} giây`
+      : '-';
+
+  return `${duration} • ${
+    video.aspectRatio
+  }`;
+}
+
+export default function MyVideos() {
+  const {
+    videos,
+    videoTotal,
+    loading,
+    error,
+    refreshAll,
+  } = useAppData();
+
+  const [
+    activeFilter,
+    setActiveFilter,
+  ] = useState('all');
+
+  const [
+    search,
+    setSearch,
+  ] = useState('');
+
+  const [
+    sort,
+    setSort,
+  ] = useState('newest');
+
+  const counts = useMemo(
+    () => ({
+      all:
+        videoTotal ||
+        videos.length,
+
+      completed:
+        videos.filter(
+          (video) =>
+            isVideoCompleted(
+              video.status
+            )
+        ).length,
+
+      processing:
+        videos.filter(
+          (video) =>
+            isVideoProcessing(
+              video.status
+            )
+        ).length,
+
+      failed:
+        videos.filter(
+          (video) =>
+            isVideoFailed(
+              video.status
+            )
+        ).length,
+    }),
+    [
+      videos,
+      videoTotal,
+    ]
+  );
+
+  const visibleVideos =
+    useMemo(() => {
+      const keyword =
+        search
+          .trim()
+          .toLowerCase();
+
+      let result =
+        videos.filter(
+          (video) => {
+            if (
+              activeFilter ===
+              'completed'
+            ) {
+              return isVideoCompleted(
+                video.status
+              );
+            }
+
+            if (
+              activeFilter ===
+              'processing'
+            ) {
+              return isVideoProcessing(
+                video.status
+              );
+            }
+
+            if (
+              activeFilter ===
+              'failed'
+            ) {
+              return isVideoFailed(
+                video.status
+              );
+            }
+
+            return true;
+          }
+        );
+
+      if (keyword) {
+        result =
+          result.filter(
+            (video) => {
+              const title =
+                video.title
+                  ?.toLowerCase() ||
+                '';
+
+              const prompt =
+                video.prompt
+                  ?.toLowerCase() ||
+                '';
+
+              return (
+                title.includes(
+                  keyword
+                ) ||
+                prompt.includes(
+                  keyword
+                )
+              );
+            }
+          );
+      }
+
+      return [...result].sort(
+        (a, b) => {
+          const dateA =
+            new Date(
+              a.createdAt || 0
+            ).getTime();
+
+          const dateB =
+            new Date(
+              b.createdAt || 0
+            ).getTime();
+
+          if (
+            sort === 'oldest'
+          ) {
+            return (
+              dateA - dateB
+            );
+          }
+
+          return (
+            dateB - dateA
+          );
+        }
+      );
+    }, [
+      videos,
+      activeFilter,
+      search,
+      sort,
+    ]);
+
+  if (loading) {
+    return (
+      <div className="page-wrap">
+        <PageHeader
+          eyebrow="THƯ VIỆN CÁ NHÂN"
+          title="Video của tôi"
+          description="Đang tải danh sách video..."
+        />
+
+        <section className="panel">
+          <EmptyState
+            icon="clock"
+            title="Đang tải video"
+            description="VideoNova đang lấy dữ liệu từ máy chủ."
+          />
+        </section>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page-wrap">
+        <PageHeader
+          eyebrow="THƯ VIỆN CÁ NHÂN"
+          title="Video của tôi"
+          description="Quản lý các tác vụ tạo video của bạn."
+        />
+
+        <section className="panel">
+          <EmptyState
+            icon="x"
+            title="Không thể tải video"
+            description={error}
+            action={
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  refreshAll()
+                    .catch(
+                      () => {}
+                    );
+                }}
+              >
+                <Icon
+                  name="refresh"
+                  className="w-4 h-4"
+                />
+
+                Thử lại
+              </button>
+            }
+          />
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-wrap">
+      <PageHeader
+        eyebrow="THƯ VIỆN CÁ NHÂN"
+        title="Video của tôi"
+        description="Theo dõi các video đang chờ, đang xử lý và đã hoàn tất."
+        action={
+          <Link
+            to="/create"
+            className="btn btn-primary"
+          >
+            <Icon
+              name="plus"
+              className="w-4 h-4"
+            />
+
+            Tạo video mới
+          </Link>
+        }
+      />
+
+      <div className="library-toolbar">
+        <div className="tabs">
+          {FILTERS.map(
+            (filter) => (
+              <button
+                type="button"
+                key={filter.key}
+                className={
+                  activeFilter ===
+                  filter.key
+                    ? 'active'
+                    : ''
+                }
+                onClick={() =>
+                  setActiveFilter(
+                    filter.key
+                  )
+                }
+              >
+                {filter.label}{' '}
+                {
+                  counts[
+                    filter.key
+                  ]
+                }
+              </button>
+            )
+          )}
+        </div>
+
+        <div className="toolbar-right">
+          <div className="search-field">
+            <Icon
+              name="search"
+              className="w-4 h-4"
+            />
+
+            <input
+              type="search"
+              value={search}
+              placeholder="Tìm kiếm video..."
+              onChange={(event) =>
+                setSearch(
+                  event.target
+                    .value
+                )
+              }
+            />
+          </div>
+
+          <select
+            className="filter-button"
+            value={sort}
+            onChange={(event) =>
+              setSort(
+                event.target
+                  .value
+              )
+            }
+          >
+            <option value="newest">
+              Mới nhất
+            </option>
+
+            <option value="oldest">
+              Cũ nhất
+            </option>
+          </select>
+        </div>
+      </div>
+
+      {videos.length === 0 ? (
+        <section className="panel">
+          <EmptyState
+            icon="video"
+            title="Chưa có video"
+            description="Bạn chưa tạo video nào. Hãy bắt đầu với hình ảnh đầu tiên."
+            action={
+              <Link
+                to="/create"
+                className="btn btn-primary"
+              >
+                <Icon
+                  name="plus"
+                  className="w-4 h-4"
+                />
+
+                Tạo video đầu tiên
+              </Link>
+            }
+          />
+        </section>
+      ) : visibleVideos.length ===
+        0 ? (
+        <section className="panel">
+          <EmptyState
+            icon="search"
+            title="Không tìm thấy video"
+            description="Không có video nào phù hợp với bộ lọc hoặc từ khóa hiện tại."
+            action={
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setSearch('');
+                  setActiveFilter(
+                    'all'
+                  );
+                }}
+              >
+                Xóa bộ lọc
+              </button>
+            }
+          />
+        </section>
+      ) : (
+        <div className="video-grid">
+          {visibleVideos.map(
+            (video) => {
+              const statusLabel =
+                getVideoStatusLabel(
+                  video.status
+                );
+
+              const processing =
+                isVideoProcessing(
+                  video.status
+                );
+
+              const completed =
+                isVideoCompleted(
+                  video.status
+                );
+
+              const failed =
+                isVideoFailed(
+                  video.status
+                );
+
+              const progress =
+                Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    Number(
+                      video.progress ||
+                        0
+                    )
+                  )
+                );
+
+              return (
+                <article
+                  className="video-card"
+                  key={video.id}
+                >
+                  <Link
+                    to={`/videos/${video.id}`}
+                    className="video-cover"
+                    style={
+                      video.thumbnailUrl
+                        ? {
+                            backgroundImage:
+                              `url("${video.thumbnailUrl}")`,
+                            backgroundSize:
+                              'cover',
+                            backgroundPosition:
+                              'center',
+                          }
+                        : undefined
+                    }
+                  >
+                    {completed && (
+                      <div className="cover-actions">
+                        <span className="play-circle">
+                          <Icon
+                            name="play"
+                            className="w-5 h-5"
+                          />
+                        </span>
+                      </div>
+                    )}
+
+                    {processing && (
+                      <div className="processing-overlay">
+                        <div className="spinner" />
+
+                        <strong>
+                          {video.status ===
+                          'PROCESSING'
+                            ? 'Đang tạo video...'
+                            : 'Đang chờ xử lý...'}
+                        </strong>
+
+                        {video.status ===
+                        'PROCESSING' ? (
+                          <>
+                            <span>
+                              {
+                                progress
+                              }
+                              %
+                            </span>
+
+                            <div className="processing-bar">
+                              <i
+                                style={{
+                                  width:
+                                    `${progress}%`,
+                                }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <span>
+                            {video.queuePosition
+                              ? `Vị trí hàng đợi: ${video.queuePosition}`
+                              : 'Tác vụ đã được đưa vào hàng đợi'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {failed && (
+                      <div className="failed-overlay">
+                        <div>
+                          <Icon
+                            name="x"
+                            className="w-5 h-5"
+                          />
+                        </div>
+
+                        <span>
+                          Tạo video thất bại
+                        </span>
+                      </div>
+                    )}
+
+                    {!video.thumbnailUrl &&
+                      !processing &&
+                      !failed && (
+                        <div className="empty-preview">
+                          <div>
+                            <Icon
+                              name="video"
+                              className="w-7 h-7"
+                            />
+                          </div>
+                        </div>
+                      )}
+                  </Link>
+
+                  <div className="video-card-body">
+                    <div className="video-title-row">
+                      <Link
+                        to={`/videos/${video.id}`}
+                      >
+                        {
+                          video.title
+                        }
+                      </Link>
+
+                      <button
+                        type="button"
+                        aria-label="Thêm tùy chọn"
+                      >
+                        <Icon
+                          name="more"
+                          className="w-5 h-5"
+                        />
+                      </button>
+                    </div>
+
+                    <div className="video-meta-row">
+                      <StatusBadge
+                        status={
+                          statusLabel
+                        }
+                      />
+
+                      <span>
+                        {getMeta(
+                          video
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="video-card-footer">
+                      <span>
+                        {formatDate(
+                          video.createdAt
+                        )}
+                      </span>
+
+                      <div>
+                        {completed &&
+                          video.outputVideoUrl && (
+                            <a
+                              href={
+                                video.outputVideoUrl
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Mở video"
+                            >
+                              <Icon
+                                name="download"
+                                className="w-4 h-4"
+                              />
+                            </a>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            }
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
