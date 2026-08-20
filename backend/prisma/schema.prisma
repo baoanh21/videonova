@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum VideoStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum AssetKind {
+  INPUT_IMAGE
+  OUTPUT_VIDEO
+  AVATAR
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  COMPLETED
+  PENDING
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id                    String               @id @default(uuid()) @db.Uuid
+  email                 String               @unique
+  passwordHash          String
+  fullName              String
+  displayName           String?
+  phone                 String?
+  language              String               @default("vi")
+  avatarPath            String?
+  role                  Role                 @default(USER)
+  isLocked              Boolean              @default(false)
+  creditBalance         Int                  @default(10)
+  notificationSettings  Json                 @default("{\"video_completed\":true,\"video_failed\":true,\"low_credit\":true,\"product_updates\":false}")
+  lowCreditThreshold    Int                  @default(2)
+  passwordChangedAt     DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  sessions              Session[]
+  passwordResetTokens   PasswordResetToken[]
+  videos                Video[]
+  transactions          CreditTransaction[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]            @relation("AuditActor")
+
+  @@index([role, isLocked])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  tokenHash    String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Video {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @db.Uuid
+  title          String
+  prompt         String
+  model          String          @default("local-ffmpeg")
+  style          String          @default("cinematic")
+  provider       String          @default("local-ffmpeg")
+  duration       Int
+  fps            Int             @default(30)
+  aspectRatio    String
+  enhanceQuality Boolean         @default(false)
+  creditCost     Int             @default(1)
+  status         VideoStatus     @default(QUEUED)
+  progress       Int             @default(0)
+  errorMessage   String?
+  completedAt    DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets         MediaAsset[]
+  job            VideoJob?
+  transactions   CreditTransaction[]
+  notifications  Notification[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("videos")
+}
+
+model MediaAsset {
+  id           String    @id @default(uuid()) @db.Uuid
+  videoId      String    @db.Uuid
+  kind         AssetKind
+  storageKey   String    @unique
+  originalName String?
+  mimeType     String
+  sizeBytes    Int
+  position     Int       @default(0)
+  createdAt    DateTime  @default(now())
+  video        Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, kind, position])
+  @@map("media_assets")
+}
+
+model VideoJob {
+  id          String      @id @default(uuid()) @db.Uuid
+  videoId     String      @unique @db.Uuid
+  queueJobId  String?     @unique
+  status      VideoStatus @default(QUEUED)
+  attempts    Int         @default(0)
+  errorCode   String?
+  errorDetail String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  video       Video       @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("video_jobs")
+}
+
+model CreditTransaction {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String            @db.Uuid
+  videoId        String?           @db.Uuid
+  type           TransactionType
+  status         TransactionStatus @default(COMPLETED)
+  creditAmount   Int
+  balanceAfter   Int
+  amount         Decimal?          @db.Decimal(14, 2)
+  currency       String            @default("VND")
+  description    String
+  idempotencyKey String            @unique
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video          Video?            @relation(fields: [videoId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([type, status, createdAt])
+  @@map("transactions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String   @db.Uuid
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  actor      User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  videoId       String?  @db.Uuid
+  transactionId String?  @db.Uuid
+  type          String
+  title         String
+  message       String
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video         Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
