@@ -27,25 +27,114 @@ const SelectCard = ({
   label,
   value,
   icon,
-}) => (
-  <div className="field-card">
-    <span>{label}</span>
+  options,
+  onChange,
+}) => {
+  const selectedLabel =
+    options.find(
+      (option) =>
+        option.value === value
+    )?.label || value;
 
-    <div>
-      <Icon
-        name={icon}
-        className="w-[18px] h-[18px]"
-      />
+  return (
+    <label
+      className="field-card"
+      style={{
+        position: 'relative',
+        cursor: 'pointer',
+      }}
+    >
+      <span>{label}</span>
 
-      <strong>{value}</strong>
+      <div>
+        <Icon
+          name={icon}
+          className="w-[18px] h-[18px]"
+        />
 
-      <Icon
-        name="chevronDown"
-        className="w-4 h-4 field-chevron"
-      />
-    </div>
-  </div>
-);
+        <strong>
+          {selectedLabel}
+        </strong>
+
+        <Icon
+          name="chevronDown"
+          className="w-4 h-4 field-chevron"
+        />
+      </div>
+
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(event) => {
+          onChange(
+            event.target.value
+          );
+        }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          opacity: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {options.map((option) => (
+          <option
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+};
+
+const MODEL_OPTIONS = [
+  {
+    value: 'Wan 2.1',
+    label: 'Wan 2.1',
+  },
+];
+
+const DURATION_OPTIONS = [
+  {
+    value: '5',
+    label: '5 giây',
+  },
+  {
+    value: '10',
+    label: '10 giây',
+  },
+];
+
+const ASPECT_RATIO_OPTIONS = [
+  {
+    value: '16:9',
+    label: '16:9',
+  },
+  {
+    value: '9:16',
+    label: '9:16',
+  },
+  {
+    value: '1:1',
+    label: '1:1',
+  },
+];
+
+const STYLE_OPTIONS = [
+  {
+    value: 'cinematic',
+    label: 'Điện ảnh',
+  },
+  {
+    value: 'natural',
+    label: 'Tự nhiên',
+  },
+];
 
 
 export default function CreateVideo() {
@@ -85,6 +174,31 @@ export default function CreateVideo() {
     submitting,
     setSubmitting,
   ] = useState(false);
+
+  const [
+    model,
+    setModel,
+  ] = useState('Wan 2.1');
+
+  const [
+    duration,
+    setDuration,
+  ] = useState('5');
+
+  const [
+    aspectRatio,
+    setAspectRatio,
+  ] = useState('16:9');
+
+  const [
+    style,
+    setStyle,
+  ] = useState('cinematic');
+
+  const [
+    enhanceQuality,
+    setEnhanceQuality,
+  ] = useState(true);
 
 
   const creditCost = 10;
@@ -300,27 +414,29 @@ export default function CreateVideo() {
 
         formData.append(
           'model',
-          'Wan 2.1'
+          model
         );
 
         formData.append(
           'duration',
-          '5'
+          duration
         );
 
         formData.append(
           'aspect_ratio',
-          '16:9'
+          aspectRatio
         );
 
         formData.append(
           'style',
-          'cinematic'
+          style
         );
 
         formData.append(
           'enhance_quality',
-          'true'
+          String(
+            enhanceQuality
+          )
         );
 
         const video =
@@ -727,26 +843,52 @@ export default function CreateVideo() {
             <div className="settings-grid">
               <SelectCard
                 label="Mô hình AI"
-                value="Wan 2.1"
+                value={model}
                 icon="sparkles"
+                options={
+                  MODEL_OPTIONS
+                }
+                onChange={
+                  setModel
+                }
               />
 
               <SelectCard
                 label="Thời lượng"
-                value="5 giây"
+                value={duration}
                 icon="clock"
+                options={
+                  DURATION_OPTIONS
+                }
+                onChange={
+                  setDuration
+                }
               />
 
               <SelectCard
                 label="Tỷ lệ khung hình"
-                value="16:9"
+                value={
+                  aspectRatio
+                }
                 icon="video"
+                options={
+                  ASPECT_RATIO_OPTIONS
+                }
+                onChange={
+                  setAspectRatio
+                }
               />
 
               <SelectCard
                 label="Phong cách"
-                value="Điện ảnh"
+                value={style}
                 icon="image"
+                options={
+                  STYLE_OPTIONS
+                }
+                onChange={
+                  setStyle
+                }
               />
             </div>
 
@@ -763,7 +905,46 @@ export default function CreateVideo() {
                 </span>
               </div>
 
-              <div className="toggle on">
+              <div
+                className={
+                  `toggle ${
+                    enhanceQuality
+                      ? 'on'
+                      : ''
+                  }`
+                }
+                role="checkbox"
+                aria-checked={
+                  enhanceQuality
+                }
+                tabIndex={0}
+                onClick={() => {
+                  setEnhanceQuality(
+                    (current) =>
+                      !current
+                  );
+                }}
+                onKeyDown={(
+                  event
+                ) => {
+                  if (
+                    event.key ===
+                      'Enter' ||
+                    event.key === ' '
+                  ) {
+                    event.preventDefault();
+
+                    setEnhanceQuality(
+                      (current) =>
+                        !current
+                    );
+                  }
+                }}
+                style={{
+                  cursor:
+                    'pointer',
+                }}
+              >
                 <i />
               </div>
             </div>
@@ -847,7 +1028,13 @@ export default function CreateVideo() {
                 </span>
 
                 <strong>
-                  Wan 2.1
+                  {
+                    MODEL_OPTIONS.find(
+                      (option) =>
+                        option.value ===
+                        model
+                    )?.label
+                  }
                 </strong>
               </div>
 
@@ -858,7 +1045,13 @@ export default function CreateVideo() {
                 </span>
 
                 <strong>
-                  5 giây
+                  {
+                    DURATION_OPTIONS.find(
+                      (option) =>
+                        option.value ===
+                        duration
+                    )?.label
+                  }
                 </strong>
               </div>
 
@@ -869,7 +1062,7 @@ export default function CreateVideo() {
                 </span>
 
                 <strong>
-                  16:9
+                  {aspectRatio}
                 </strong>
               </div>
 
@@ -880,7 +1073,9 @@ export default function CreateVideo() {
                 </span>
 
                 <strong>
-                  Tiêu chuẩn+
+                  {enhanceQuality
+                    ? 'Tăng cường'
+                    : 'Tiêu chuẩn'}
                 </strong>
               </div>
             </div>
