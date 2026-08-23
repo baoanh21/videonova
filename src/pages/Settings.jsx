@@ -145,11 +145,6 @@ export default function Settings() {
   ] = useState('');
 
   const [
-    passwordSuccess,
-    setPasswordSuccess,
-  ] = useState('');
-
-  const [
     showDeleteForm,
     setShowDeleteForm,
   ] = useState(false);
@@ -252,7 +247,6 @@ export default function Settings() {
       event.preventDefault();
 
       setPasswordError('');
-      setPasswordSuccess('');
 
       if (!currentPassword) {
         setPasswordError(
@@ -267,6 +261,21 @@ export default function Settings() {
       ) {
         setPasswordError(
           'Mật khẩu mới phải có ít nhất 8 ký tự.'
+        );
+
+        return;
+      }
+
+      if (
+        !/[A-Za-z]/.test(
+          newPassword
+        ) ||
+        !/\d/.test(
+          newPassword
+        )
+      ) {
+        setPasswordError(
+          'Mật khẩu mới phải có ít nhất 1 chữ và 1 số.'
         );
 
         return;
@@ -308,17 +317,27 @@ export default function Settings() {
         setNewPassword('');
         setConfirmPassword('');
 
-        setPasswordSuccess(
-          'Mật khẩu đã được thay đổi.'
-        );
+        /*
+         * Backend thu hồi toàn bộ session
+         * sau khi đổi mật khẩu.
+         *
+         * logout() vẫn luôn xóa token local
+         * trong finally, kể cả request revoke
+         * lên backend trả 401 vì session
+         * vừa bị thu hồi.
+         */
+        await logout();
 
-        setSettings(
-          (current) => ({
-            ...current,
+        navigate(
+          '/login',
+          {
+            replace: true,
 
-            lastPasswordChangedAt:
-              new Date().toISOString(),
-          })
+            state: {
+              passwordChanged:
+                true,
+            },
+          }
         );
       } catch (err) {
         if (
@@ -595,12 +614,6 @@ export default function Settings() {
             {passwordError && (
               <div className="auth-error settings-message">
                 {passwordError}
-              </div>
-            )}
-
-            {passwordSuccess && (
-              <div className="auth-success settings-message">
-                {passwordSuccess}
               </div>
             )}
 

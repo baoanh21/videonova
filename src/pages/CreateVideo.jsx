@@ -201,7 +201,7 @@ export default function CreateVideo() {
   ] = useState(true);
 
 
-  const creditCost = 10;
+  const creditCost = 1;
 
   const creditBalance =
     typeof credit === 'number'

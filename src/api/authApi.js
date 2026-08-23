@@ -184,3 +184,20 @@ export function logoutUser() {
     }
   );
 }
+
+export function resetPassword({
+  token,
+  newPassword,
+}) {
+  return apiRequest(
+    '/auth/reset-password',
+    {
+      method: 'POST',
+      body: {
+        token,
+        new_password:
+          newPassword,
+      },
+    }
+  );
+}

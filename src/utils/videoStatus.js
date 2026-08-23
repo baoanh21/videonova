@@ -1,4 +1,3 @@
-//Backend nên dùng trạng thái kỹ thuật bằng tiếng Anh. UI mới chuyển sang tiếng Việt.
 const VIDEO_STATUS = {
   PENDING: {
     label: 'Đang chờ',
@@ -24,43 +23,87 @@ const VIDEO_STATUS = {
     label: 'Thất bại',
     tone: 'danger',
   },
+
+  CANCELED: {
+    label: 'Đã hủy',
+    tone: 'default',
+  },
 };
 
-export function normalizeVideoStatus(status) {
-  return String(status || '').toUpperCase();
+export function normalizeVideoStatus(
+  status
+) {
+  const normalized =
+    String(
+      status || ''
+    ).toUpperCase();
+
+  if (
+    normalized === 'SUCCEEDED'
+  ) {
+    return 'COMPLETED';
+  }
+
+  return normalized;
 }
 
-export function getVideoStatusLabel(status) {
+export function getVideoStatusLabel(
+  status
+) {
   const normalized =
-    normalizeVideoStatus(status);
+    normalizeVideoStatus(
+      status
+    );
 
   return (
-    VIDEO_STATUS[normalized]?.label ||
+    VIDEO_STATUS[
+      normalized
+    ]?.label ||
     status ||
     'Không xác định'
   );
 }
 
-export function isVideoProcessing(status) {
+export function isVideoProcessing(
+  status
+) {
   return [
     'PENDING',
     'QUEUED',
     'PROCESSING',
   ].includes(
-    normalizeVideoStatus(status)
+    normalizeVideoStatus(
+      status
+    )
   );
 }
 
-export function isVideoCompleted(status) {
+export function isVideoCompleted(
+  status
+) {
   return (
-    normalizeVideoStatus(status) ===
-    'COMPLETED'
+    normalizeVideoStatus(
+      status
+    ) === 'COMPLETED'
   );
 }
 
-export function isVideoFailed(status) {
+export function isVideoFailed(
+  status
+) {
   return (
-    normalizeVideoStatus(status) ===
-    'FAILED'
+    normalizeVideoStatus(
+      status
+    ) === 'FAILED'
+  );
+}
+
+export function isVideoCanceled(
+  status
+) {
+  return (
+    normalizeVideoStatus(
+      status
+    ) === 'CANCELED'
   );
 }

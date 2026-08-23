@@ -22,6 +22,9 @@ import {
   isVideoProcessing,
 } from '../utils/videoStatus';
 
+import useProtectedMediaUrl
+  from '../hooks/useProtectedMediaUrl';
+
 function formatVideoMeta(video) {
   const duration = video.duration
     ? `${video.duration} giây`
@@ -56,6 +59,44 @@ function formatDate(value) {
   ).format(date);
 }
 
+function ProtectedVideoThumb({
+  video,
+}) {
+  const thumbnailObjectUrl =
+    useProtectedMediaUrl(
+      video.thumbnailUrl
+    );
+
+  return (
+    <div
+      className="video-thumb"
+      style={
+        thumbnailObjectUrl
+          ? {
+              backgroundImage:
+                `url("${thumbnailObjectUrl}")`,
+              backgroundSize:
+                'cover',
+              backgroundPosition:
+                'center',
+            }
+          : undefined
+      }
+    >
+      <Icon
+        name={
+          isVideoProcessing(
+            video.status
+          )
+            ? 'clock'
+            : 'play'
+        }
+        className="w-5 h-5"
+      />
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const {
     credit,
@@ -84,7 +125,8 @@ export default function Dashboard() {
     if (videoSummary) {
       const completed =
         Number(
-          videoSummary.completed ??
+          videoSummary.succeeded ??
+            videoSummary.completed ??
             0
         );
 
@@ -509,32 +551,9 @@ export default function Dashboard() {
                       className="recent-row"
                       key={video.id}
                     >
-                      <div
-                        className="video-thumb"
-                        style={
-                          video.thumbnailUrl
-                            ? {
-                                backgroundImage:
-                                  `url("${video.thumbnailUrl}")`,
-                                backgroundSize:
-                                  'cover',
-                                backgroundPosition:
-                                  'center',
-                              }
-                            : undefined
-                        }
-                      >
-                        <Icon
-                          name={
-                            isVideoProcessing(
-                              video.status
-                            )
-                              ? 'clock'
-                              : 'play'
-                          }
-                          className="w-5 h-5"
-                        />
-                      </div>
+                      <ProtectedVideoThumb
+                        video={video}
+                      />
 
                       <div className="recent-info">
                         <strong>

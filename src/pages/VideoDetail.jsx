@@ -1,4 +1,9 @@
 import {
+  downloadMedia,
+  getMediaObjectUrl,
+} from '../api/mediaApi';
+
+import {
   useCallback,
   useEffect,
   useState,
@@ -6,6 +11,7 @@ import {
 
 import {
   Link,
+  useNavigate,
   useParams,
 } from 'react-router-dom';
 
@@ -17,6 +23,8 @@ import {
 } from '../components/UI';
 
 import {
+  cancelVideo,
+  deleteVideo,
   getVideo,
   getVideoStatus,
 } from '../api/videoApi';
@@ -60,6 +68,7 @@ function formatDateTime(value) {
 
 export default function VideoDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [video, setVideo] =
     useState(null);
@@ -72,6 +81,36 @@ export default function VideoDetail() {
 
   const [copied, setCopied] =
     useState(false);
+
+  const [
+    inputImageObjectUrl,
+    setInputImageObjectUrl,
+  ] = useState('');
+
+  const [
+    outputVideoObjectUrl,
+    setOutputVideoObjectUrl,
+  ] = useState('');
+
+  const [
+    downloading,
+    setDownloading,
+  ] = useState(false);
+
+  const [
+    actionLoading,
+    setActionLoading,
+  ] = useState(false);
+
+  const [
+    actionError,
+    setActionError,
+  ] = useState('');
+
+  const [
+    actionMessage,
+    setActionMessage,
+  ] = useState('');
 
   const loadVideo =
     useCallback(async () => {
@@ -97,6 +136,104 @@ export default function VideoDetail() {
   useEffect(() => {
     loadVideo();
   }, [loadVideo]);
+
+  /*
+   * Ảnh đầu vào là protected media.
+   * Tải bằng Bearer token rồi chuyển
+   * thành object URL để trình duyệt hiển thị.
+   */
+  useEffect(() => {
+    if (!video?.inputImageUrl) {
+      setInputImageObjectUrl('');
+
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl = '';
+
+    const loadInputImage =
+      async () => {
+        try {
+          objectUrl =
+            await getMediaObjectUrl(
+              video.inputImageUrl
+            );
+
+          if (!cancelled) {
+            setInputImageObjectUrl(
+              objectUrl
+            );
+          }
+        } catch (err) {
+          console.error(
+            'Không thể tải ảnh đầu vào:',
+            err
+          );
+        }
+      };
+
+    loadInputImage();
+
+    return () => {
+      cancelled = true;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(
+          objectUrl
+        );
+      }
+    };
+  }, [video?.inputImageUrl]);
+
+  /*
+   * Video đầu ra cũng là protected media.
+   * Tải bằng Bearer token rồi tạo object URL
+   * để thẻ <video> có thể phát bình thường.
+   */
+  useEffect(() => {
+    if (!video?.outputVideoUrl) {
+      setOutputVideoObjectUrl('');
+
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl = '';
+
+    const loadOutputVideo =
+      async () => {
+        try {
+          objectUrl =
+            await getMediaObjectUrl(
+              video.outputVideoUrl
+            );
+
+          if (!cancelled) {
+            setOutputVideoObjectUrl(
+              objectUrl
+            );
+          }
+        } catch (err) {
+          console.error(
+            'Không thể tải video đầu ra:',
+            err
+          );
+        }
+      };
+
+    loadOutputVideo();
+
+    return () => {
+      cancelled = true;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(
+          objectUrl
+        );
+      }
+    };
+  }, [video?.outputVideoUrl]);
 
   /*
    * Poll trạng thái thật từ backend.
@@ -187,6 +324,116 @@ export default function VideoDetail() {
     id,
     video?.status,
   ]);
+
+  const handleDownloadVideo =
+    async () => {
+      if (!video?.outputVideoUrl) {
+        return;
+      }
+
+      try {
+        setDownloading(true);
+
+        await downloadMedia(
+          video.outputVideoUrl,
+          `videonova-${video.id}.mp4`
+        );
+      } catch (err) {
+        console.error(
+          'Không thể tải video:',
+          err
+        );
+
+        setError(
+          err?.message ||
+            'Không thể tải video.'
+        );
+      } finally {
+        setDownloading(false);
+      }
+    };
+
+  const handleCancelVideo =
+    async () => {
+      if (!video?.id) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          'Hủy tác vụ tạo video này? Credit đã dùng sẽ được hoàn lại theo xử lý của hệ thống.'
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setActionLoading(true);
+        setActionError('');
+        setActionMessage('');
+
+        const cancelledVideo =
+          await cancelVideo(
+            video.id
+          );
+
+        setVideo(
+          cancelledVideo
+        );
+
+        setActionMessage(
+          'Đã hủy tác vụ tạo video.'
+        );
+      } catch (err) {
+        setActionError(
+          err?.message ||
+            'Không thể hủy video.'
+        );
+      } finally {
+        setActionLoading(false);
+      }
+    };
+
+  const handleDeleteVideo =
+    async () => {
+      if (!video?.id) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `Xóa "${video.title}" khỏi Video của tôi?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setActionLoading(true);
+        setActionError('');
+        setActionMessage('');
+
+        await deleteVideo(
+          video.id
+        );
+
+        navigate(
+          '/videos',
+          {
+            replace: true,
+          }
+        );
+      } catch (err) {
+        setActionError(
+          err?.message ||
+            'Không thể xóa video.'
+        );
+
+        setActionLoading(false);
+      }
+    };
 
   const handleCopyPrompt =
     async () => {
@@ -282,6 +529,10 @@ export default function VideoDetail() {
       video.status
     );
 
+  const canceled =
+    video.status ===
+    'CANCELED';
+
   const progress =
     Math.max(
       0,
@@ -349,38 +600,97 @@ export default function VideoDetail() {
             </Link>
           )}
 
+          {processing ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={
+                handleCancelVideo
+              }
+              disabled={
+                actionLoading
+              }
+            >
+              <Icon
+                name="x"
+                className="w-4 h-4"
+              />
+
+              {actionLoading
+                ? 'Đang hủy...'
+                : 'Hủy tạo video'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={
+                handleDeleteVideo
+              }
+              disabled={
+                actionLoading
+              }
+            >
+              <Icon
+                name="x"
+                className="w-4 h-4"
+              />
+
+              {actionLoading
+                ? 'Đang xóa...'
+                : 'Xóa video'}
+            </button>
+          )}
+
           {completed &&
             video.outputVideoUrl && (
-              <a
-                href={
-                  video.outputVideoUrl
-                }
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 className="btn btn-primary"
+                onClick={
+                  handleDownloadVideo
+                }
+                disabled={
+                  downloading ||
+                  actionLoading
+                }
               >
                 <Icon
                   name="download"
                   className="w-4 h-4"
                 />
 
-                Tải video
-              </a>
+                {downloading
+                  ? 'Đang tải...'
+                  : 'Tải video'}
+              </button>
             )}
         </div>
       </div>
 
+      {actionError && (
+        <div className="auth-error">
+          {actionError}
+        </div>
+      )}
+
+      {actionMessage && (
+        <div className="auth-success">
+          {actionMessage}
+        </div>
+      )}
+
       <div className="detail-grid">
         <section className="panel video-player">
           {completed &&
-          video.outputVideoUrl ? (
+          outputVideoObjectUrl ? (
             <video
               className="real-video"
               src={
-                video.outputVideoUrl
+                outputVideoObjectUrl
               }
               poster={
-                video.thumbnailUrl ||
+                inputImageObjectUrl ||
                 undefined
               }
               controls
@@ -466,6 +776,23 @@ export default function VideoDetail() {
                 Tạo video khác
               </Link>
             </div>
+          ) : canceled ? (
+            <div className="detail-processing-state">
+              <Icon
+                name="x"
+                className="w-8 h-8"
+              />
+
+              <h2>
+                Video đã được hủy
+              </h2>
+
+              <p>
+                Tác vụ tạo video đã dừng.
+                Bạn có thể xóa video này
+                khỏi danh sách.
+              </p>
+            </div>
           ) : (
             <div className="detail-processing-state">
               <Icon
@@ -527,9 +854,8 @@ export default function VideoDetail() {
                 </dt>
 
                 <dd>
-                  {
-                    video.resolution
-                  }
+                  {video.resolution ||
+                    '-'}
                 </dd>
               </div>
 
@@ -590,12 +916,12 @@ export default function VideoDetail() {
               Ảnh đầu vào
             </h2>
 
-            {video.inputImageUrl ? (
+            {inputImageObjectUrl ? (
               <div
                 className="source-image"
                 style={{
                   backgroundImage:
-                    `url("${video.inputImageUrl}")`,
+                    `url("${inputImageObjectUrl}")`,
                   backgroundSize:
                     'cover',
                   backgroundPosition:

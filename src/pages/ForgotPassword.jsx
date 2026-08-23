@@ -29,12 +29,18 @@ export default function ForgotPassword() {
     setSuccess,
   ] = useState(false);
 
+  const [
+    resetToken,
+    setResetToken,
+  ] = useState('');
+
   const handleSubmit =
     async (event) => {
       event.preventDefault();
 
       setError('');
       setSuccess(false);
+      setResetToken('');
 
       if (!email.trim()) {
         setError(
@@ -47,11 +53,25 @@ export default function ForgotPassword() {
       try {
         setSubmitting(true);
 
-        await forgotPassword(
-          email
-            .trim()
-            .toLowerCase()
-        );
+        const result =
+          await forgotPassword(
+            email
+              .trim()
+              .toLowerCase()
+          );
+
+        /*
+         * Backend development có thể trả
+         * reset_token để test local.
+         * Production sẽ không trả token này.
+         */
+        if (
+          result?.reset_token
+        ) {
+          setResetToken(
+            result.reset_token
+          );
+        }
 
         /*
          * Không tiết lộ email có tồn tại
@@ -60,7 +80,7 @@ export default function ForgotPassword() {
         setSuccess(true);
       } catch (err) {
         setError(
-          err.message ||
+          err?.message ||
             'Không thể gửi yêu cầu.'
         );
       } finally {
@@ -105,7 +125,7 @@ export default function ForgotPassword() {
         <p>
           Nhập email đã đăng ký.
           Nếu tài khoản tồn tại,
-          hệ thống sẽ gửi hướng dẫn
+          hệ thống sẽ tạo hướng dẫn
           đặt lại mật khẩu.
         </p>
 
@@ -142,7 +162,38 @@ export default function ForgotPassword() {
           <div className="auth-success">
             Nếu email tồn tại,
             hướng dẫn đặt lại mật khẩu
-            đã được gửi.
+            đã được tạo.
+          </div>
+        )}
+
+        {resetToken && (
+          <div className="auth-success">
+            <strong>
+              Chế độ development:
+            </strong>
+
+            <div
+              style={{
+                marginTop: 8,
+                overflowWrap:
+                  'anywhere',
+              }}
+            >
+              Reset token:{' '}
+              {resetToken}
+            </div>
+
+            <Link
+              to={`/reset-password?token=${encodeURIComponent(
+                resetToken
+              )}`}
+              className="btn btn-secondary full"
+              style={{
+                marginTop: 12,
+              }}
+            >
+              Đi tới đặt lại mật khẩu
+            </Link>
           </div>
         )}
 

@@ -4,9 +4,17 @@ import {
   Route,
 } from 'react-router-dom';
 
-import AppLayout from './components/AppLayout';
-import AdminLayout from './components/AdminLayout';
-import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute
+  from './components/AdminRoute';
+
+import AppLayout
+  from './components/AppLayout';
+
+import AdminLayout
+  from './components/AdminLayout';
+
+import ProtectedRoute
+  from './components/ProtectedRoute';
 
 import {
   AuthProvider,
@@ -20,26 +28,59 @@ import {
   NotificationProvider,
 } from './context/NotificationContext';
 
-import Dashboard from './pages/Dashboard';
-import CreateVideo from './pages/CreateVideo';
-import MyVideos from './pages/MyVideos';
-import VideoDetail from './pages/VideoDetail';
-import Billing from './pages/Billing';
-import Transactions from './pages/Transactions';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Help from './pages/Help';
+import Dashboard
+  from './pages/Dashboard';
 
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
+import CreateVideo
+  from './pages/CreateVideo';
 
-import AdminDashboard from './pages/AdminDashboard';
-import AdminUsers from './pages/AdminUsers';
-import AdminVideos from './pages/AdminVideos';
-import AdminTransactions from './pages/AdminTransactions';
+import MyVideos
+  from './pages/MyVideos';
 
-import NotFound from './pages/NotFound';
+import VideoDetail
+  from './pages/VideoDetail';
+
+import Billing
+  from './pages/Billing';
+
+import Transactions
+  from './pages/Transactions';
+
+import Profile
+  from './pages/Profile';
+
+import Settings
+  from './pages/Settings';
+
+import Help
+  from './pages/Help';
+
+import Login
+  from './pages/Login';
+
+import Register
+  from './pages/Register';
+
+import ForgotPassword
+  from './pages/ForgotPassword';
+
+import ResetPassword
+  from './pages/ResetPassword';
+
+import AdminDashboard
+  from './pages/AdminDashboard';
+
+import AdminUsers
+  from './pages/AdminUsers';
+
+import AdminVideos
+  from './pages/AdminVideos';
+
+import AdminTransactions
+  from './pages/AdminTransactions';
+
+import NotFound
+  from './pages/NotFound';
 
 import './App.css';
 
@@ -66,12 +107,20 @@ export default function App() {
             }
           />
 
-          {/* User cần đăng nhập */}
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPassword />
+            }
+          />
+
+          {/* Cần đăng nhập */}
           <Route
             element={
               <ProtectedRoute />
             }
           >
+            {/* User */}
             <Route
               element={
                 <AppDataProvider>
@@ -145,42 +194,46 @@ export default function App() {
               />
             </Route>
 
-            {/* Admin đang để nguyên,
-                hiện chưa nằm trong phần
-                frontend user mình tập trung */}
+            {/* Admin */}
             <Route
-              path="/admin"
               element={
-                <AdminLayout />
+                <AdminRoute />
               }
             >
               <Route
-                index
+                path="/admin"
                 element={
-                  <AdminDashboard />
+                  <AdminLayout />
                 }
-              />
+              >
+                <Route
+                  index
+                  element={
+                    <AdminDashboard />
+                  }
+                />
 
-              <Route
-                path="users"
-                element={
-                  <AdminUsers />
-                }
-              />
+                <Route
+                  path="users"
+                  element={
+                    <AdminUsers />
+                  }
+                />
 
-              <Route
-                path="videos"
-                element={
-                  <AdminVideos />
-                }
-              />
+                <Route
+                  path="videos"
+                  element={
+                    <AdminVideos />
+                  }
+                />
 
-              <Route
-                path="transactions"
-                element={
-                  <AdminTransactions />
-                }
-              />
+                <Route
+                  path="transactions"
+                  element={
+                    <AdminTransactions />
+                  }
+                />
+              </Route>
             </Route>
           </Route>
 

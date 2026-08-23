@@ -21,6 +21,9 @@ import {
   uploadAvatar,
 } from '../api/userApi';
 
+import useProtectedMediaUrl
+  from '../hooks/useProtectedMediaUrl';
+
 const MAX_AVATAR_SIZE =
   5 * 1024 * 1024;
 
@@ -96,6 +99,11 @@ export default function Profile() {
     avatarPreview,
     setAvatarPreview,
   ] = useState('');
+
+  const [
+    avatarVersion,
+    setAvatarVersion,
+  ] = useState(0);
 
   const [
     saving,
@@ -174,9 +182,23 @@ export default function Profile() {
       );
     }, [user?.fullName]);
 
+  const protectedAvatarPath =
+    user?.avatarUrl
+      ? `${user.avatarUrl}${
+          user.avatarUrl.includes('?')
+            ? '&'
+            : '?'
+        }v=${avatarVersion}`
+      : '';
+
+  const avatarObjectUrl =
+    useProtectedMediaUrl(
+      protectedAvatarPath
+    );
+
   const currentAvatar =
     avatarPreview ||
-    user?.avatarUrl ||
+    avatarObjectUrl ||
     '';
 
   const handleAvatarChange =
@@ -306,6 +328,9 @@ export default function Profile() {
          * 2. Nếu user có chọn
          * avatar mới thì upload.
          */
+        const uploadedNewAvatar =
+          Boolean(avatarFile);
+
         if (avatarFile) {
           await uploadAvatar(
             avatarFile
@@ -319,6 +344,19 @@ export default function Profile() {
          * Topbar cũng đổi theo.
          */
         await reloadUser();
+
+        /*
+         * URL avatar backend luôn là
+         * /users/me/avatar, nên sau khi
+         * upload cần đổi query version
+         * để hook fetch lại ảnh mới.
+         */
+        if (uploadedNewAvatar) {
+          setAvatarVersion(
+            (current) =>
+              current + 1
+          );
+        }
 
         setAvatarFile(null);
 

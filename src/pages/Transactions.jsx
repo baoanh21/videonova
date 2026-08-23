@@ -17,7 +17,6 @@ import {
 } from '../components/UI';
 
 import {
-  exportTransactions,
   getTransactions,
 } from '../api/transactionApi';
 
@@ -25,28 +24,6 @@ import {
   getTransactionCreditText,
   getTransactionStatusLabel,
 } from '../utils/transaction';
-
-const FILTERS = [
-  {
-    key: '',
-    label: 'Tất cả',
-  },
-
-  {
-    key: 'PURCHASE',
-    label: 'Mua credit',
-  },
-
-  {
-    key: 'VIDEO_USAGE',
-    label: 'Sử dụng',
-  },
-
-  {
-    key: 'DAILY_FREE',
-    label: 'Miễn phí',
-  },
-];
 
 const PAGE_SIZE = 10;
 
@@ -105,11 +82,6 @@ export default function Transactions() {
     setTransactions,
   ] = useState([]);
 
-  const [
-    summary,
-    setSummary,
-  ] = useState(null);
-
   const [page, setPage] =
     useState(1);
 
@@ -120,11 +92,6 @@ export default function Transactions() {
 
   const [total, setTotal] =
     useState(0);
-
-  const [
-    activeType,
-    setActiveType,
-  ] = useState('');
 
   const [
     searchInput,
@@ -144,16 +111,6 @@ export default function Transactions() {
   const [error, setError] =
     useState('');
 
-  const [
-    exporting,
-    setExporting,
-  ] = useState(false);
-
-  const [
-    exportError,
-    setExportError,
-  ] = useState('');
-
   const loadTransactions =
     useCallback(async () => {
       try {
@@ -165,9 +122,8 @@ export default function Transactions() {
             page,
             limit:
               PAGE_SIZE,
-            type:
-              activeType,
             search,
+            order: 'desc',
           });
 
         setTransactions(
@@ -182,9 +138,6 @@ export default function Transactions() {
           result.totalPages
         );
 
-        setSummary(
-          result.summary
-        );
       } catch (err) {
         setError(
           err.message ||
@@ -195,7 +148,6 @@ export default function Transactions() {
       }
     }, [
       page,
-      activeType,
       search,
     ]);
 
@@ -204,12 +156,6 @@ export default function Transactions() {
   }, [
     loadTransactions,
   ]);
-
-  const handleFilter =
-    (type) => {
-      setActiveType(type);
-      setPage(1);
-    };
 
   const handleSearch =
     (event) => {
@@ -222,158 +168,15 @@ export default function Transactions() {
       );
     };
 
-  const handleExport =
-    async () => {
-      try {
-        setExportError('');
-        setExporting(true);
-
-        const result =
-          await exportTransactions();
-
-        window.location.assign(
-          result.downloadUrl
-        );
-      } catch (err) {
-        setExportError(
-          err.message ||
-            'Không thể xuất lịch sử.'
-        );
-      } finally {
-        setExporting(false);
-      }
-    };
-
   return (
     <div className="page-wrap">
       <PageHeader
         eyebrow="LỊCH SỬ GIAO DỊCH"
         title="Biến động credit"
-        description="Theo dõi các lần mua, nhận và sử dụng credit."
-        action={
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={
-              handleExport
-            }
-            disabled={
-              exporting
-            }
-          >
-            <Icon
-              name="download"
-              className="w-4 h-4"
-            />
-
-            {exporting
-              ? 'Đang xuất...'
-              : 'Xuất lịch sử'}
-          </button>
-        }
+        description="Theo dõi các lần nhận, hoàn và sử dụng credit."
       />
 
-      {exportError && (
-        <div className="auth-error transaction-message">
-          {exportError}
-        </div>
-      )}
-
-      <div className="transaction-summary">
-        <div>
-          <span>
-            Credit đã mua
-          </span>
-
-          <strong>
-            {Number(
-              summary?.purchased_credits ??
-                summary?.purchasedCredits ??
-                0
-            ).toLocaleString(
-              'vi-VN'
-            )}
-          </strong>
-
-          <small>
-            Tổng credit mua
-          </small>
-        </div>
-
-        <div>
-          <span>
-            Credit đã sử dụng
-          </span>
-
-          <strong>
-            {Number(
-              summary?.used_credits ??
-                summary?.usedCredits ??
-                0
-            ).toLocaleString(
-              'vi-VN'
-            )}
-          </strong>
-
-          <small>
-            Chi phí tạo video
-          </small>
-        </div>
-
-        <div>
-          <span>
-            Tổng thanh toán
-          </span>
-
-          <strong>
-            {formatMoney(
-              summary?.total_paid ??
-                summary?.totalPaid ??
-                0,
-              summary?.currency ||
-                'VND'
-            )}
-          </strong>
-
-          <small>
-            {Number(
-              summary?.successful_payments ??
-                summary?.successfulPayments ??
-                0
-            )}{' '}
-            giao dịch thành công
-          </small>
-        </div>
-      </div>
-
       <div className="table-toolbar">
-        <div className="tabs">
-          {FILTERS.map(
-            (filter) => (
-              <button
-                type="button"
-                key={
-                  filter.key ||
-                  'all'
-                }
-                className={
-                  activeType ===
-                  filter.key
-                    ? 'active'
-                    : ''
-                }
-                onClick={() =>
-                  handleFilter(
-                    filter.key
-                  )
-                }
-              >
-                {filter.label}
-              </button>
-            )
-          )}
-        </div>
-
         <form
           className="search-field"
           onSubmit={
@@ -390,7 +193,7 @@ export default function Transactions() {
             value={
               searchInput
             }
-            placeholder="Tìm mã giao dịch..."
+            placeholder="Tìm theo nội dung giao dịch..."
             onChange={(
               event
             ) =>
@@ -442,21 +245,18 @@ export default function Transactions() {
             icon="receipt"
             title="Chưa có giao dịch"
             description={
-              search ||
-              activeType
+              search
                 ? 'Không tìm thấy giao dịch phù hợp.'
                 : 'Các biến động credit sẽ xuất hiện tại đây.'
             }
             action={
-              search ||
-              activeType ? (
+              search ? (
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
                     setSearch('');
                     setSearchInput('');
-                    setActiveType('');
                     setPage(1);
                   }}
                 >

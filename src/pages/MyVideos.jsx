@@ -26,6 +26,18 @@ import {
   isVideoProcessing,
 } from '../utils/videoStatus';
 
+import {
+  downloadMedia,
+} from '../api/mediaApi';
+
+import {
+  cancelVideo,
+  deleteVideo,
+} from '../api/videoApi';
+
+import useProtectedMediaUrl
+  from '../hooks/useProtectedMediaUrl';
+
 const FILTERS = [
   {
     key: 'all',
@@ -81,6 +93,204 @@ function getMeta(video) {
   }`;
 }
 
+function ProtectedVideoCover({
+  video,
+  children,
+}) {
+  const thumbnailObjectUrl =
+    useProtectedMediaUrl(
+      video.thumbnailUrl
+    );
+
+  return (
+    <Link
+      to={`/videos/${video.id}`}
+      className="video-cover"
+      style={
+        thumbnailObjectUrl
+          ? {
+              backgroundImage:
+                `url("${thumbnailObjectUrl}")`,
+              backgroundSize:
+                'cover',
+              backgroundPosition:
+                'center',
+            }
+          : undefined
+      }
+    >
+      {children}
+    </Link>
+  );
+}
+
+function VideoDownloadButton({
+  video,
+}) {
+  const [
+    downloading,
+    setDownloading,
+  ] = useState(false);
+
+  const handleDownload =
+    async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !video.outputVideoUrl ||
+        downloading
+      ) {
+        return;
+      }
+
+      try {
+        setDownloading(true);
+
+        await downloadMedia(
+          video.outputVideoUrl,
+          `videonova-${video.id}.mp4`
+        );
+      } catch (err) {
+        console.error(
+          'Không thể tải video:',
+          err
+        );
+      } finally {
+        setDownloading(false);
+      }
+    };
+
+  return (
+    <button
+      type="button"
+      onClick={
+        handleDownload
+      }
+      disabled={
+        downloading
+      }
+      title={
+        downloading
+          ? 'Đang tải video'
+          : 'Tải video'
+      }
+    >
+      <Icon
+        name={
+          downloading
+            ? 'clock'
+            : 'download'
+        }
+        className="w-4 h-4"
+      />
+    </button>
+  );
+}
+
+function VideoManageButton({
+  video,
+  processing,
+  onChanged,
+  onMessage,
+}) {
+  const [
+    actionLoading,
+    setActionLoading,
+  ] = useState(false);
+
+  const handleAction =
+    async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (actionLoading) {
+        return;
+      }
+
+      const isCancel =
+        processing;
+
+      const confirmed =
+        window.confirm(
+          isCancel
+            ? `Hủy tác vụ "${video.title}"?`
+            : `Xóa "${video.title}" khỏi Video của tôi?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setActionLoading(true);
+        onMessage('');
+
+        if (isCancel) {
+          await cancelVideo(
+            video.id
+          );
+
+          onMessage(
+            'Đã hủy tác vụ tạo video.'
+          );
+        } else {
+          await deleteVideo(
+            video.id
+          );
+
+          onMessage(
+            'Đã xóa video.'
+          );
+        }
+
+        await onChanged();
+      } catch (err) {
+        onMessage(
+          err?.message ||
+            (isCancel
+              ? 'Không thể hủy video.'
+              : 'Không thể xóa video.')
+        );
+      } finally {
+        setActionLoading(false);
+      }
+    };
+
+  return (
+    <button
+      type="button"
+      onClick={
+        handleAction
+      }
+      disabled={
+        actionLoading
+      }
+      title={
+        actionLoading
+          ? 'Đang xử lý'
+          : processing
+            ? 'Hủy tạo video'
+            : 'Xóa video'
+      }
+      aria-label={
+        processing
+          ? 'Hủy tạo video'
+          : 'Xóa video'
+      }
+    >
+      <Icon
+        name={
+          actionLoading
+            ? 'clock'
+            : 'x'
+        }
+        className="w-4 h-4"
+      />
+    </button>
+  );
+}
+
 export default function MyVideos() {
   const {
     videos,
@@ -104,6 +314,11 @@ export default function MyVideos() {
     sort,
     setSort,
   ] = useState('newest');
+
+  const [
+    actionMessage,
+    setActionMessage,
+  ] = useState('');
 
   const counts = useMemo(
     () => ({
@@ -320,6 +535,12 @@ export default function MyVideos() {
         }
       />
 
+      {actionMessage && (
+        <div className="auth-success">
+          {actionMessage}
+        </div>
+      )}
+
       <div className="library-toolbar">
         <div className="tabs">
           {FILTERS.map(
@@ -459,6 +680,10 @@ export default function MyVideos() {
                   video.status
                 );
 
+              const canceled =
+                video.status ===
+                'CANCELED';
+
               const progress =
                 Math.max(
                   0,
@@ -476,21 +701,8 @@ export default function MyVideos() {
                   className="video-card"
                   key={video.id}
                 >
-                  <Link
-                    to={`/videos/${video.id}`}
-                    className="video-cover"
-                    style={
-                      video.thumbnailUrl
-                        ? {
-                            backgroundImage:
-                              `url("${video.thumbnailUrl}")`,
-                            backgroundSize:
-                              'cover',
-                            backgroundPosition:
-                              'center',
-                          }
-                        : undefined
-                    }
+                  <ProtectedVideoCover
+                    video={video}
                   >
                     {completed && (
                       <div className="cover-actions">
@@ -558,9 +770,25 @@ export default function MyVideos() {
                       </div>
                     )}
 
+                    {canceled && (
+                      <div className="failed-overlay">
+                        <div>
+                          <Icon
+                            name="x"
+                            className="w-5 h-5"
+                          />
+                        </div>
+
+                        <span>
+                          Video đã được hủy
+                        </span>
+                      </div>
+                    )}
+
                     {!video.thumbnailUrl &&
                       !processing &&
-                      !failed && (
+                      !failed &&
+                      !canceled && (
                         <div className="empty-preview">
                           <div>
                             <Icon
@@ -570,7 +798,7 @@ export default function MyVideos() {
                           </div>
                         </div>
                       )}
-                  </Link>
+                  </ProtectedVideoCover>
 
                   <div className="video-card-body">
                     <div className="video-title-row">
@@ -582,15 +810,18 @@ export default function MyVideos() {
                         }
                       </Link>
 
-                      <button
-                        type="button"
-                        aria-label="Thêm tùy chọn"
-                      >
-                        <Icon
-                          name="more"
-                          className="w-5 h-5"
-                        />
-                      </button>
+                      <VideoManageButton
+                        video={video}
+                        processing={
+                          processing
+                        }
+                        onChanged={
+                          refreshAll
+                        }
+                        onMessage={
+                          setActionMessage
+                        }
+                      />
                     </div>
 
                     <div className="video-meta-row">
@@ -617,19 +848,9 @@ export default function MyVideos() {
                       <div>
                         {completed &&
                           video.outputVideoUrl && (
-                            <a
-                              href={
-                                video.outputVideoUrl
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Mở video"
-                            >
-                              <Icon
-                                name="download"
-                                className="w-4 h-4"
-                              />
-                            </a>
+                            <VideoDownloadButton
+                              video={video}
+                            />
                           )}
                       </div>
                     </div>

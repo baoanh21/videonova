@@ -49,14 +49,23 @@ export async function getCreditPackages() {
       '/billing/packages'
     );
 
-  const items =
+  const rawItems =
     Array.isArray(data)
       ? data
       : data?.items ?? [];
 
-  return items.map(
-    normalizePackage
-  );
+  return {
+    items:
+      rawItems.map(
+        normalizePackage
+      ),
+
+    paymentEnabled:
+      Boolean(
+        data?.payment_enabled ??
+          false
+      ),
+  };
 }
 
 export async function createCheckout({
@@ -79,9 +88,7 @@ export async function createCheckout({
       }
     );
 
-  if (
-    !data?.checkout_url
-  ) {
+  if (!data?.checkout_url) {
     throw new Error(
       'Backend không trả checkout_url.'
     );

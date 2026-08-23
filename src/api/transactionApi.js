@@ -3,9 +3,8 @@ import {
 } from './apiClient';
 
 export const TRANSACTION_TYPES = {
-  PURCHASE: 'PURCHASE',
+  CREDIT: 'CREDIT',
   VIDEO_USAGE: 'VIDEO_USAGE',
-  DAILY_FREE: 'DAILY_FREE',
   REFUND: 'REFUND',
   ADJUSTMENT: 'ADJUSTMENT',
 };
@@ -86,8 +85,8 @@ export function normalizeTransaction(
 export async function getTransactions({
   page = 1,
   limit = 10,
-  type = '',
   search = '',
+  order = 'desc',
 } = {}) {
   const query =
     new URLSearchParams();
@@ -102,9 +101,12 @@ export async function getTransactions({
     String(limit)
   );
 
-  if (type) {
-    query.set('type', type);
-  }
+  query.set(
+    'order',
+    order === 'asc'
+      ? 'asc'
+      : 'desc'
+  );
 
   if (search.trim()) {
     query.set(
@@ -129,6 +131,7 @@ export async function getTransactions({
         data.length,
 
       page: 1,
+
       limit:
         data.length || limit,
 
@@ -187,23 +190,5 @@ export async function getTransactions({
     summary:
       data?.summary ??
       null,
-  };
-}
-
-export async function exportTransactions() {
-  const data =
-    await apiRequest(
-      '/transactions/export'
-    );
-
-  if (!data?.download_url) {
-    throw new Error(
-      'Backend không trả download_url.'
-    );
-  }
-
-  return {
-    downloadUrl:
-      data.download_url,
   };
 }

@@ -173,3 +173,28 @@ export async function getVideoStatus(videoId) {
 
   return normalizeVideo(data);
 }
+
+export async function cancelVideo(
+  videoId
+) {
+  const data =
+    await apiRequest(
+      `/videos/${videoId}/cancel`,
+      {
+        method: 'POST',
+      }
+    );
+
+  return normalizeVideo(data);
+}
+
+export function deleteVideo(
+  videoId
+) {
+  return apiRequest(
+    `/videos/${videoId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
